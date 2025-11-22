@@ -1,181 +1,133 @@
-from flask import Flask, request, render_template_string
+from flask import Flask, request, redirect, render_template_string
 import random
 import string
+import os
+import time
+import threading
 
 app = Flask(__name__)
 
+# Temporary storage for URLs
+url_mapping = {}
+
 def generate_random_string(length=8):
-    """Generate a random string for unique URLs."""
     letters = string.ascii_lowercase + string.digits
     return ''.join(random.choice(letters) for _ in range(length))
 
-HTML_FORM = """
+def clear_screen():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+def display_banner():
+    banner = r"""
+  __  __   _____   _____   _   _   _____   __  __
+ |  \/  | |_   _| |_   _| | \ | | |_   _| |  \/  |
+ | \  / |   | |     | |   |  \| |   | |   | \  / |
+ | |\/| |   | |     | |   | . ` |   | |   | |\/| |
+ | |  | |  _| |_   _| |_  | |\  |  _| |_  | |  | |
+ |_|  |_| |_____| |_____| |_| \_| |_____| |_|  |_|
+
+            URL Masking Tool (Version 1.0)
+          Created by [Your Name Here]
+
+[+] Select an option:
+[01] Mask a URL
+[02] Exit
+    """
+    print(banner)
+
+def mask_url():
+    clear_screen()
+    display_banner()
+    print("\n[+] Enter the Original URL (e.g., http://instagram.com):")
+    original_url = input("> ").strip()
+    print("\n[+] Enter the Fake URL (e.g., http://youtube.com):")
+    fake_url = input("> ").strip()
+
+    if not original_url.startswith(('http://', 'https://')):
+        original_url = 'http://' + original_url
+    if not fake_url.startswith(('http://', 'https://')):
+        fake_url = 'http://' + fake_url
+
+    random_path = generate_random_string()
+    masked_url = f"http://{request.host.split(':')[0]}:5000/{random_path}"
+
+    url_mapping[random_path] = {
+        "original": original_url,
+        "fake": fake_url
+    }
+
+    print(f"\n[+] Your Masked URL: {masked_url}")
+    print("[+] This URL will show the fake URL but redirect to the original URL.")
+    input("\n[+] Press Enter to continue...")
+
+@app.route("/")
+def home():
+    return """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Advanced URL Masker</title>
+    <title>URL Masking Tool</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        h1 {
-            color: #333;
+            font-family: Arial, sans-serif;
             text-align: center;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        button {
-            background-color: #4CAF50;
+            margin-top: 50px;
             color: white;
-            padding: 12px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            width: 100%;
-            font-size: 16px;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        .output {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #e9f7ef;
-            border-radius: 4px;
-            border-left: 4px solid #4CAF50;
-        }
-        .masked-url {
-            word-break: break-all;
-            font-family: monospace;
-            background-color: #fff;
-            padding: 10px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-        }
-        .suggestions {
-            margin-top: 15px;
-            padding: 10px;
-            background-color: #fff8e1;
-            border-radius: 4px;
-            border-left: 4px solid #ffc107;
-        }
-        .suggestions p {
-            margin: 5px 0;
+            background-color: black;
         }
     </style>
 </head>
 <body>
-    <h1>Advanced URL Masker</h1>
-    <form method="POST">
-        <div class="form-group">
-            <label for="original_url">Original URL (e.g., https://hello.com):</label>
-            <input type="text" id="original_url" name="original_url" placeholder="https://hello.com" required>
-        </div>
-        <div class="form-group">
-            <label for="fake_url">Fake URL (e.g., https://example.com):</label>
-            <input type="text" id="fake_url" name="fake_url" placeholder="https://example.com" required>
-        </div>
-        <button type="submit">Generate Unique Masked URL</button>
-    </form>
-
-    {% if masked_url %}
-    <div class="output">
-        <h3>Your Unique Masked URL:</h3>
-        <div class="masked-url">
-            <a href="{{ masked_url }}" target="_blank">{{ masked_url }}</a>
-        </div>
-        <p><strong>Note:</strong> This URL will show the fake URL but redirect to the original URL.</p>
-    </div>
-    {% endif %}
-
-    {% if suggestions %}
-    <div class="suggestions">
-        <h3>Suggestions for Modification:</h3>
-        {% for suggestion in suggestions %}
-        <p>✅ {{ suggestion }}</p>
-        {% endfor %}
-    </div>
-    {% endif %}
+    <h1>URL Masking Tool</h1>
+    <p>Use the terminal interface to mask URLs.</p>
 </body>
 </html>
 """
 
-@app.route("/", methods=["GET", "POST"])
-def home():
-    masked_url = None
-    suggestions = []
-    if request.method == "POST":
-        original_url = request.form.get("original_url")
-        fake_url = request.form.get("fake_url")
-
-        if original_url and fake_url:
-            # Add http:// if missing
-            if not original_url.startswith(('http://', 'https://')):
-                original_url = 'http://' + original_url
-            if not fake_url.startswith(('http://', 'https://')):
-                fake_url = 'http://' + fake_url
-
-            # Generate a unique random string for the URL
-            random_string = generate_random_string()
-            masked_url = f"http://your-server-ip:5000/{random_string}?fake={fake_url}&original={original_url}"
-
-            # Generate suggestions
-            suggestions.append(f"Try using a shorter fake URL like: {fake_url.split('//')[1].split('/')[0].split('.')[0]},com")
-            suggestions.append(f"For better results, use HTTPS: {original_url.replace('http://', 'https://')}")
-
-    return render_template_string(HTML_FORM, masked_url=masked_url, suggestions=suggestions)
-
-@app.route("/<random_string>")
-def redirect_with_random(random_string):
-    fake_url = request.args.get("fake")
-    original_url = request.args.get("original")
-
-    if original_url:
+@app.route("/<random_path>")
+def redirect_to_original(random_path):
+    url_data = url_mapping.get(random_path)
+    if url_data:
         return f"""
-        <html>
-            <head>
-                <title>Redirecting to {fake_url}</title>
-                <style>
-                    body {{
-                        font-family: Arial, sans-serif;
-                        text-align: center;
-                        margin-top: 50px;
-                    }}
-                    h1 {{
-                        color: #333;
-                    }}
-                </style>
-            </head>
-            <body>
-                <h1>Redirecting to {fake_url}...</h1>
-                <p>You will be redirected to the original URL shortly.</p>
-                <script>
-                    setTimeout(function() {{
-                        window.location.href = "{original_url}";
-                    }}, 2000);
-                </script>
-            </body>
-        </html>
-        """
+<html>
+<head>
+    <title>Redirecting to {url_data['fake']}</title>
+    <meta http-equiv="refresh" content="2; url={url_data['original']}">
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+            background-color: black;
+            color: #00ff00;
+        }}
+    </style>
+</head>
+<body>
+    <h1>Redirecting to {url_data['fake']}...</h1>
+    <p>You will be redirected to the original URL in 2 seconds.</p>
+</body>
+</html>
+"""
     else:
-        return "Invalid URL", 400
+        return "URL not found or expired.", 404
+
+def main_menu():
+    while True:
+        clear_screen()
+        display_banner()
+        choice = input("\n> ").strip()
+
+        if choice == "1":
+            mask_url()
+        elif choice == "2":
+            print("\n[+] Exiting...")
+            os._exit(0)
+        else:
+            print("\n[-] Invalid option. Try again.")
+            time.sleep(1)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    # Start Flask server in a separate thread
+    threading.Thread(target=lambda: app.run(host="0.0.0.0", port=5000, debug=False)).start()
+    main_menu()
