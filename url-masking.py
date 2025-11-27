@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string, redirect, make_response
+from flask import Flask, request, render_template_string, make_response, redirect
 import random
 import string
 import threading
@@ -40,7 +40,7 @@ def display_banner():
           ██║   ██║██╔██╗ ██║██║  ██║██║     ██║  ███╗█████╗  ██████╔╝
           ██║   ██║██║╚██╗██║██║  ██║██║     ██║   ██║██╔══╝  ██╔══██╗
           ╚██████╔╝██║ ╚████║██████╔╝███████╗╚██████╔╝███████╗██║  ██║
-           ╚═════╝ ╚═╝  ╚═══╝╚═════╝ ╚══════╝ ╚══════╝╚══════╝╚═╝  ╚═╝
+           ╚═════╝ ╚═╝  ╚═══╝╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
 
             URL Masking Tool (Version 3.0)
           Created by [Your Name Here]
@@ -60,9 +60,9 @@ def setup_ngrok():
 def mask_url(public_url):
     clear_screen()
     display_banner()
-    print("\n\033[92m[+]\033[0m Enter the Original URL (e.g., http://instagram.com):")
+    print("\n\033[92m[+]\033[0m Enter the Original URL (e.g., http://example.com):")
     original_url = input("\033[93m> \033[0m").strip()
-    print("\n\033[92m[+]\033[0m Enter the Fake URL (e.g., http://Instagrarn.com):")
+    print("\n\033[92m[+]\033[0m Enter the Fake URL (e.g., http://linstagrarn.com):")
     fake_url = input("\033[93m> \033[0m").strip()
 
     if not original_url.startswith(('http://', 'https://')):
@@ -71,29 +71,23 @@ def mask_url(public_url):
         fake_url = 'http://' + fake_url
 
     random_path = generate_random_string()
-    masked_url = f"{public_url}/{random_path}"
+    masked_url = f"{fake_url}/{public_url.split('//')[1]}/{random_path}"
 
     url_mapping[random_path] = original_url
 
-    print(f"\n\033[92m[+]\033[0m Your Public Masked URL: \033[96m{fake_url}?path={random_path}\033[0m")
-    print(f"\033[92m[+]\033[0m Note: The actual URL is: \033[96m{masked_url}\033[0m (Do not share this)")
+    print(f"\n\033[92m[+]\033[0m Your Public Masked URL: \033[96m{masked_url}\033[0m")
     input("\n\033[92m[+]\033[0m Press Enter to continue...")
 
-@app.route('/<path:random_path>')
+@app.route('/unseeding-lorna-parthenocarpically.ngrok-free.dev/<path:random_path>')
 def fake_page(random_path):
     if random_path in url_mapping:
-        fake_url = "http://Instagrarn.com"  # You can dynamically set this based on your logic
-        response = make_response(render_template_string(f'''
+        response = make_response(render_template_string('''
 <!DOCTYPE html>
 <html>
 <head>
-    <title>{fake_url}</title>
-    <script>
-        window.history.replaceState(null, null, "{fake_url}?path={random_path}");
-        document.title = "{fake_url.split('//')[1].split('/')[0]}";
-    </script>
+    <title>Loading...</title>
     <style>
-        body {{
+        body {
             font-family: Arial, sans-serif;
             background-color: white;
             margin: 0;
@@ -102,23 +96,23 @@ def fake_page(random_path):
             justify-content: center;
             align-items: center;
             height: 100vh;
-        }}
-        .loader {{
+        }
+        .loader {
             width: 40px;
             height: 40px;
             border: 4px solid rgba(0, 0, 0, 0.1);
             border-radius: 50%;
             border-top-color: #333;
             animation: spin 1s ease-in-out infinite;
-        }}
-        @keyframes spin {{
-            to {{ transform: rotate(360deg); }}
-        }}
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
+    <meta http-equiv="refresh" content="2; url={url_mapping[random_path]}">
 </head>
 <body>
     <div class="loader"></div>
-    <meta http-equiv="refresh" content="2; url={url_mapping[random_path]}">
 </body>
 </html>
 '''))
