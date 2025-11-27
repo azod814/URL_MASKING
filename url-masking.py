@@ -1,14 +1,12 @@
-from flask import Flask, request, render_template_string, redirect
+from flask import Flask, request, render_template_string
 import random
 import string
 import threading
 import socket
 import os
 from pyngrok import ngrok
-import time
 
 app = Flask(__name__)
-
 url_mapping = {}
 
 def generate_random_string(length=8):
@@ -74,7 +72,7 @@ def mask_url(public_url):
 
     random_path = generate_random_string()
     fake_domain = fake_url.split('//')[1].split('/')[0]
-    masked_url = f"{public_url}/{fake_domain}?path={random_path}"
+    masked_url = f"{public_url}/{random_path}"
 
     url_mapping[random_path] = original_url
 
@@ -88,7 +86,7 @@ def home():
 <!DOCTYPE html>
 <html>
 <head>
-    <title>URL Masking Tool</title>
+    <title>Loading...</title>
     <style>
         body {
             font-family: 'Courier New', monospace;
@@ -102,43 +100,44 @@ def home():
             color: #00ff00;
         }
         .container {
-            background-color: #1a1a1a;
-            padding: 30px;
-            border-radius: 5px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
             text-align: center;
-            max-width: 500px;
-            width: 100%;
-            border: 1px solid #00ff00;
+        }
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 5px solid rgba(0, 255, 0, 0.2);
+            border-radius: 50%;
+            border-top-color: #00ff00;
+            animation: spin 1s ease-in-out infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
         h1 {
             color: #00ff00;
-            text-shadow: 0 0 5px #00ff00;
-        }
-        p {
-            color: #aaaaaa;
+            font-size: 18px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>URL MASKING TOOL</h1>
-        <p>Use the terminal interface to mask URLs.</p>
+        <div class="loader"></div>
+        <h1>Loading...</h1>
     </div>
 </body>
 </html>
 ''')
 
-@app.route('/<path:fake_domain>', methods=['GET'])
-def fake_page(fake_domain):
-    path = request.args.get('path')
-    if path and path in url_mapping:
+@app.route('/<path:random_path>')
+def fake_page(random_path):
+    if random_path in url_mapping:
         return render_template_string(f'''
 <!DOCTYPE html>
 <html>
 <head>
-    <title>{fake_domain}</title>
-    <meta http-equiv="refresh" content="2; url={url_mapping[path]}">
+    <title>Loading...</title>
+    <meta http-equiv="refresh" content="2; url={url_mapping[random_path]}">
     <style>
         body {{
             font-family: 'Courier New', monospace;
@@ -151,24 +150,31 @@ def fake_page(fake_domain):
             height: 100vh;
             color: #00ff00;
         }}
-        .fake-page {{
+        .container {{
             text-align: center;
         }}
-        .loader h1 {{
-            color: #00ff00;
-            text-shadow: 0 0 5px #00ff00;
+        .loader {{
+            width: 48px;
+            height: 48px;
+            border: 5px solid rgba(0, 255, 0, 0.2);
+            border-radius: 50%;
+            border-top-color: #00ff00;
+            animation: spin 1s ease-in-out infinite;
+            margin: 0 auto 20px;
         }}
-        .loader p {{
-            color: #aaaaaa;
+        @keyframes spin {{
+            to {{ transform: rotate(360deg); }}
+        }}
+        h1 {{
+            color: #00ff00;
+            font-size: 18px;
         }}
     </style>
 </head>
 <body>
-    <div class="fake-page">
-        <div class="loader">
-            <h1>Redirecting to {fake_domain}...</h1>
-            <p>Please wait...</p>
-        </div>
+    <div class="container">
+        <div class="loader"></div>
+        <h1>Loading...</h1>
     </div>
 </body>
 </html>
@@ -192,7 +198,7 @@ def main_menu(public_url):
             exit(0)
         else:
             print("\n\033[91m[-]\033[0m Invalid option. Try again.")
-            time.sleep(1)
+            input("\n\033[92m[+]\033[0m Press Enter to continue...")
 
 if __name__ == "__main__":
     print("\033[92m[+]\033[0m Setting up Ngrok...")
