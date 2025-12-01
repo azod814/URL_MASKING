@@ -1,4 +1,4 @@
-# url_masker.py — Final Premium Version (Banner + Spinner Landing)
+# url_masker.py — FINAL VERSION (White Spinner + Banner + Suggestions)
 # Requirements:
 #   pip install flask pyngrok
 
@@ -61,8 +61,7 @@ def suggest_fake_names(base_text, max_s=6):
 
     suggestions = []
     for c in list(cand):
-        dom = c + ".com"
-        suggestions.append((dom, False))
+        suggestions.append((c + ".com", False))
         if len(suggestions) >= max_s:
             break
 
@@ -76,7 +75,7 @@ def ensure_log_header():
     try:
         if not os.path.exists(log_file):
             with open(log_file, "w", newline='') as f:
-                csv.writer(f).writerow(["time", "token", "ip", "original"])
+                csv.writer(f).writerow(["time","token","ip","original"])
     except:
         pass
 
@@ -95,14 +94,14 @@ def safe_log_click(token, ip):
 
 
 # -------------------------
-# LANDING PAGE — PURE SPINNER
+# WHITE MINIMAL SPINNER PAGE
 # -------------------------
 @app.route('/r/<token>')
 def landing(token):
     try:
         info = url_mapping.get(token)
         if not info:
-            return "Invalid link or expired.", 404
+            return "Invalid or expired link.", 404
 
         original = info["original"]
 
@@ -111,47 +110,62 @@ def landing(token):
         except:
             pass
 
+        # WHITE clean loading screen
         html = '''
         <!doctype html>
         <html>
-          <head>
+        <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width,initial-scale=1">
             <title>Loading…</title>
 
-            <!-- Auto redirect -->
-            <meta http-equiv="refresh" content="1.5; url={{ original }}">
+            <meta http-equiv="refresh" content="1.3; url={{ original }}">
 
             <style>
-              html,body{height:100%;margin:0;background:#000;}
-              .wrap{height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;}
-
-              .spinner{
-                width:72px;height:72px;border-radius:50%;
-                border:8px solid rgba(255,255,255,0.08);
-                border-top-color:#fff;
-                animation:spin 1s linear infinite;
-              }
-              @keyframes spin{to{transform:rotate(360deg)}}
-
-              .txt{
-                color:#999;margin-top:16px;
-                font-family:system-ui,Arial;font-size:13px;
-              }
+                html,body {
+                    height: 100%;
+                    margin: 0;
+                    background: #ffffff;
+                }
+                .wrap {
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-direction: column;
+                }
+                .spinner {
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    border: 4px solid rgba(0,0,0,0.15);
+                    border-top-color: #333333;
+                    animation: spin 0.8s linear infinite;
+                }
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+                .txt {
+                    margin-top: 10px;
+                    font-family: Arial, sans-serif;
+                    color: #777;
+                    font-size: 13px;
+                }
             </style>
 
             <script>
-              setTimeout(function(){
-                try{ window.location.replace("{{ original }}"); }catch(e){}
-              },1500);
+                setTimeout(function(){
+                    try { window.location.replace("{{ original }}"); } catch(e){}
+                },1300);
             </script>
-          </head>
-          <body>
+        </head>
+
+        <body>
             <div class="wrap">
-              <div class="spinner"></div>
-              <div class="txt">Loading…</div>
+                <div class="spinner"></div>
+                <div class="txt">Loading...</div>
             </div>
-          </body>
+        </body>
         </html>
         '''
         return render_template_string(html, original=original)
@@ -161,43 +175,43 @@ def landing(token):
 
 
 # -------------------------
-# CREATE MASKED LINK (CONSOLE FLOW)
+# CREATE MASKED LINK FLOW
 # -------------------------
 def mask_flow(public_url):
     while True:
         banner()
-        print("STEP 1: Enter ORIGINAL URL (real destination):")
+        print("STEP 1 → Enter ORIGINAL URL:")
         original = input("> ").strip()
         if not original:
-            input("Original URL empty. Press Enter…")
+            input("Empty! Press Enter…")
             continue
 
-        print("\nSTEP 2: Enter FAKE-style URL text (lookalike label):")
-        fake_in = input("> ").strip() or "example.com"
+        print("\nSTEP 2 → Enter FAKE-LOOK text (like youtube.com):")
+        fake_txt = input("> ").strip() or "example.com"
 
-        print("\nGenerating suggestions…")
-        sugg = suggest_fake_names(fake_in, 6)
+        print("\nGenerating Look-Alike Fake Domains…\n")
+        sugg = suggest_fake_names(fake_txt, 6)
 
-        print("\nSUGGESTIONS:")
-        for i,(dom,_) in enumerate(sugg,1):
-            print(f" [{i}] {dom}")
-        print(" [0] Use exactly:", fake_in)
+        for i,(d,_) in enumerate(sugg,1):
+            print(f" [{i}] {d}")
+        print(" [0] Use exactly:", fake_txt)
 
-        ch = input("\nChoose label index (0-6): ").strip()
-        if ch.isdigit():
-            ch = int(ch)
-            if ch == 0:
-                label = fake_in
-            elif 1 <= ch <= len(sugg):
-                label = sugg[ch-1][0]
+        choice = input("\nChoose label index (0-6): ").strip()
+
+        if choice.isdigit():
+            choice = int(choice)
+            if choice == 0:
+                label = fake_txt
+            elif 1 <= choice <= len(sugg):
+                label = sugg[choice-1][0]
             else:
-                label = fake_in
+                label = fake_txt
         else:
-            label = fake_in
+            label = fake_txt
 
         print("\nSUMMARY:")
-        print("  Original →", original)
-        print("  Fake Label →", label)
+        print(" ORIGINAL  →", original)
+        print(" FAKE TEXT →", label)
 
         ok = input("\nCreate final masked link? (y/N): ").lower()
         if ok != "y":
@@ -211,15 +225,15 @@ def mask_flow(public_url):
             "created": time.time()
         }
 
-        final = public_url.rstrip("/") + "/r/" + token
-        bar = "+" + "-"*(len(final)+6) + "+"
+        final_link = public_url.rstrip("/") + "/r/" + token
 
-        print("\nFINAL LINK:")
+        bar = "+" + "-"*(len(final_link)+6) + "+"
+        print("\nFINAL MASKED LINK:")
         print(bar)
-        print("|  " + final + "  |")
+        print("|  " + final_link + "  |")
         print(bar)
 
-        input("\nPress Enter to continue…")
+        input("\nPress Enter…")
         return
 
 
@@ -229,9 +243,9 @@ def mask_flow(public_url):
 def menu(public_url):
     while True:
         banner()
-        print("NGROK Public URL:", public_url or "(not detected)")
-        print("\n1) Create Masked Awareness Link")
-        print("2) Show Saved Mappings")
+        print("NGROK Public:", public_url or "(not detected)")
+        print("\n1) Create Masked Link")
+        print("2) Show Mappings")
         print("3) Exit")
 
         ch = input("> ").strip()
@@ -240,12 +254,12 @@ def menu(public_url):
         elif ch == "2":
             banner()
             if not url_mapping:
-                print("No mappings created yet.")
+                print("No mappings yet.")
             else:
                 for t,info in url_mapping.items():
                     print("\nTOKEN:", t)
                     print(" Original:", info["original"])
-                    print(" Fake Label:", info["label"])
+                    print(" Fake:", info["label"])
                     print(" Created:", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(info["created"])))
             input("\nPress Enter…")
         elif ch == "3":
@@ -265,10 +279,10 @@ def start():
     try:
         tunnel = ngrok.connect(8000)
         public = tunnel.public_url
-        print("Auto-ngrok started →", public)
+        print("Auto-ngrok OK →", public)
     except Exception as e:
-        print("Auto-ngrok failed:", e)
-        public = input("Paste ngrok forwarding URL manually:\n> ").strip()
+        print("Automatic ngrok failed:", e)
+        public = input("\nPaste ngrok forwarding URL manually:\n> ").strip()
 
     ensure_log_header()
 
