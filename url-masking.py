@@ -1,6 +1,11 @@
 from flask import Flask, redirect, render_template_string
 import threading
 import requests
+import random
+import time
+from colorama import Fore, Style, init
+
+init(autoreset=True)
 
 app = Flask(__name__)
 
@@ -62,57 +67,82 @@ def start_flask():
 
 def is_url_registered(url):
     try:
-        response = requests.get(url, timeout=5)
+        response = requests.get(f"http://{url}", timeout=5)
         return response.status_code == 200
     except:
         return False
 
+def suggest_fake_urls(original_url):
+    suggestions = []
+    fake_bases = ["Y0u", "F4ke", "N3w", "DummY", "T3st"]
+    domains = ["tube", "book", "gram", "site", "page"]
+    for base in fake_bases:
+        for domain in domains:
+            fake_url = f"{base}{domain}.com"
+            if not is_url_registered(fake_url):
+                suggestions.append(fake_url)
+    return suggestions[:5]  # Return top 5 suggestions
+
 def main():
-    print("""
+    print(Fore.CYAN + """
     ===================================
     🔗 URL Masking Tool (Education Only)
     ===================================
-    """)
+    """ + Style.RESET_ALL)
 
     # Start Flask in a thread
     threading.Thread(target=start_flask, daemon=True).start()
-    print("🛠️ Flask server started on port 8000.")
-    print("🔗 Now run: ngrok http 8000")
-    print("🌐 Your public URL will be provided by ngrok.\n")
+    print(Fore.GREEN + "🛠️ Flask server started on port 8000.")
+    print(Fore.YELLOW + "🔗 Now run in a new terminal: ngrok http 8000")
+    print(Fore.MAGENTA + "🌐 Ngrok will provide your public URL.\n")
 
     while True:
-        print("\nOptions:")
-        print("1. Create a new masked URL")
-        print("2. List all masked URLs")
-        print("3. Exit")
-        choice = input("Choose an option (1/2/3): ")
+        print(Fore.CYAN + "\nOptions:")
+        print(Fore.GREEN + "1. Create a new masked URL")
+        print(Fore.BLUE + "2. List all masked URLs")
+        print(Fore.RED + "3. Exit")
+        choice = input(Fore.YELLOW + "Choose an option (1/2/3): " + Style.RESET_ALL)
 
         if choice == "1":
-            original_url = input("🔗 Enter original URL (e.g., https://instagram.com): ")
-            fake_url = input("🎭 Enter fake URL (e.g., Y0utube): ")
-            fake_full_url = f"http://{fake_url}"
-
-            if not is_url_registered(fake_full_url):
-                masked_url = f"[YOUR_NGROK_URL]/{fake_url}"  # Replace with your ngrok URL
-                url_mapping[fake_url] = original_url
-                print(f"\n✅ Success! Your masked URL is ready:")
-                print(f"🔗 Masked URL: {masked_url}")
-                print(f"💡 When someone visits {masked_url}, they will be redirected to {original_url}")
-                print(f"📋 Copy this URL and test it on your phone!")
+            print(Fore.CYAN + "\n🔗 Enter the original URL (e.g., https://youtube.com):")
+            original_url = input(Fore.GREEN + "> " + Style.RESET_ALL)
+            print(Fore.CYAN + "\n🤖 Analyzing and suggesting fake URLs...")
+            time.sleep(2)
+            suggestions = suggest_fake_urls(original_url.split("//")[-1].split("/")[0])
+            if not suggestions:
+                print(Fore.RED + "❌ No unregistered fake URLs found. Try manually.")
+                fake_url = input(Fore.CYAN + "🎭 Enter your fake URL (e.g., Y0utube): " + Style.RESET_ALL)
             else:
-                print(f"❌ Error: '{fake_full_url}' is already a registered URL. Try another fake URL.")
+                print(Fore.GREEN + "\n💡 Suggested fake URLs (unregistered):")
+                for i, url in enumerate(suggestions, 1):
+                    print(f"{Fore.YELLOW}{i}. {url}")
+                choice = input(Fore.CYAN + "\nSelect a suggestion (1-5) or enter your own: " + Style.RESET_ALL)
+                fake_url = suggestions[int(choice)-1] if choice.isdigit() and 1 <= int(choice) <= 5 else input(Fore.CYAN + "🎭 Enter your fake URL: " + Style.RESET_ALL)
+
+            print(Fore.CYAN + "\n🔍 Checking if fake URL is unregistered...")
+            time.sleep(1)
+            if not is_url_registered(fake_url):
+                ngrok_url = input(Fore.YELLOW + "🌐 Enter your ngrok URL (e.g., https://abc123.ngrok.io): " + Style.RESET_ALL)
+                masked_url = f"{ngrok_url}/{fake_url}"
+                url_mapping[fake_url] = original_url
+                print(Fore.GREEN + f"\n✅ Success! Your masked URL is ready:")
+                print(Fore.MAGENTA + f"🔗 Masked URL: {masked_url}")
+                print(Fore.CYAN + f"💡 When someone visits {masked_url}, they will be redirected to {original_url}")
+                print(Fore.YELLOW + "📋 Copy this URL and test it on your phone!")
+            else:
+                print(Fore.RED + f"❌ Error: '{fake_url}' is already registered. Try another.")
 
         elif choice == "2":
-            print("\n📋 Masked URLs:")
+            print(Fore.CYAN + "\n📋 Masked URLs:")
             for fake, original in url_mapping.items():
-                print(f"🔗 [YOUR_NGROK_URL]/{fake} → {original}")
+                print(Fore.MAGENTA + f"🔗 {fake} → {original}")
 
         elif choice == "3":
-            print("Exiting...")
+            print(Fore.RED + "Exiting...")
             break
 
         else:
-            print("Invalid choice!")
+            print(Fore.RED + "Invalid choice!")
 
 if __name__ == "__main__":
     main()
