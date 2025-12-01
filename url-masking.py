@@ -1,45 +1,34 @@
+# fixed_masker8000.py
+# Robust safe redirector with UI, suggestions and defensive error handling.
+# Port: 8000
+# Usage: pip install flask pyngrok
+# Start ngrok: ngrok http 8000  (if auto-ngrok fails)
+
 from flask import Flask, request, render_template_string
-import random, string, threading, socket, os, csv, time
+import random, string, threading, socket, os, csv, time, traceback
 from pyngrok import ngrok
 
 app = Flask(__name__)
 url_mapping = {}
 log_file = "clicks_log.csv"
 
-class C:
-    G = "\033[92m"
-    B = "\033[94m"
-    Y = "\033[93m"
-    R = "\033[91m"
-    W = "\033[97m"
-    C_ = "\033[96m"
-    P = "\033[95m"
-    END = "\033[0m"
-    BOLD = "\033[1m"
-
-def banner():
-    print(C.C_ + C.BOLD + r"""
- ███╗   ███╗ █████╗ ███████╗██╗  ██╗███████╗██╗  ██╗███████╗██████╗ 
- ████╗ ████║██╔══██╗██╔════╝██║ ██╔╝██╔════╝██║ ██╔╝██╔════╝██╔══██╗
- ██╔████╔██║███████║███████╗█████╔╝ █████╗  █████╔╝ █████╗  ██████╔╝
- ██║╚██╔╝██║██╔══██║╚════██║██╔═██╗ ██╔══╝  ██╔═██╗ ██╔══╝  ██╔══██╗
- ██║ ╚═╝ ██║██║  ██║███████║██║  ██╗███████╗██║  ██╗███████╗██║  ██║
- ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
-
-                 URL AWARENESS MASKER (Port 8000)
---------------------------------------------------------------------
-""" + C.END)
-
+# -------------------------
+# Utilities
+# -------------------------
 def gen_token(n=10):
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(n))
 
 def domain_from_url(url):
+    if not url:
+        return ""
     if "://" in url:
         url = url.split("://", 1)[1]
     return url.split("/")[0].split(":")[0].lower()
 
 def domain_resolves(d):
     try:
+        if not d:
+            return False
         socket.gethostbyname(d)
         return True
     except:
@@ -49,285 +38,223 @@ def rand_suffix(n=3):
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(n))
 
 def suggest_fake_names(base_text, max_s=6):
-    base = base_text
+    base = base_text or "site"
     if "://" in base:
         base = base.split("://",1)[1]
-    base = base.split("/")[0]
-    base = base.replace("www.", "")
-    sld = base.split(".")[0]
-    if not sld:
-        sld = "site"
+    base = base.split("/")[0].replace("www.", "")
+    sld = base.split(".")[0] or "site"
     cand = set()
     for i in range(len(sld)):
         cand.add(sld[:i] + '-' + sld[i:])
         cand.add(sld + rand_suffix(2))
     for _ in range(max_s * 2):
         cand.add(sld + rand_suffix(2))
-    final = []
+    results = []
     for c in list(cand):
         dom = c + ".com"
-        final.append((dom, domain_resolves(dom)))
-        if len(final) >= max_s:
+        results.append((dom, domain_resolves(dom)))
+        if len(results) >= max_s:
             break
-    final.sort(key=lambda x: (x[1], x[0]))
-    return final[:max_s]
+    results.sort(key=lambda x: (x[1], x[0]))
+    return results[:max_s]
 
 def ensure_log_header():
-    if not os.path.exists(log_file):
-        with open(log_file, "w", newline='') as f:
-            csv.writer(f).writerow(["timestamp", "token", "remote_addr", "original"])
+    try:
+        if not os.path.exists(log_file):
+            with open(log_file, "w", newline='') as f:
+                csv.writer(f).writerow(["timestamp","token","remote_addr","original"])
+    except Exception as e:
+        print("ensure_log_header error:", e)
 
-def log_click(token, remote):
-    ensure_log_header()
-    with open(log_file, "a", newline='') as f:
-        csv.writer(f).writerow([
-            time.strftime("%Y-%m-%d %H:%M:%S"),
-            token,
-            remote,
-            url_mapping[token]["original"]
-        ])
+def safe_log_click(token, remote):
+    try:
+        ensure_log_header()
+        with open(log_file, "a", newline='') as f:
+            csv.writer(f).writerow([time.strftime("%Y-%m-%d %H:%M:%S"), token, remote, url_mapping[token]["original"]])
+    except Exception as e:
+        # don't let logging break the handler
+        print("log_click failed:", e)
 
+# -------------------------
+# Landing route (robust)
+# -------------------------
 @app.route('/r/<token>')
 def landing(token):
-    info = url_mapping.get(token)
-    if not info:
-        return "Not found", 404
-    original = info["original"]
-    label = info.get("label") or ""
     try:
-        log_click(token, request.remote_addr)
-    except:
-        pass
-    html = """
-    <!doctype html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <title>URL Awareness Demo</title>
-        <meta name="viewport" content="width=device-width,initial-scale=1">
-        <style>
-          body {{
-            margin:0;
-            background:#020617;
-            font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            color:#e5e7eb;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            min-height:100vh;
-          }}
-          .card {{
-            background:radial-gradient(circle at top,#1d283a,#020617 55%);
-            padding:32px 28px;
-            border-radius:18px;
-            box-shadow:0 20px 60px rgba(0,0,0,0.65);
-            max-width:480px;
-            width:90%;
-            text-align:center;
-            border:1px solid rgba(148,163,184,0.35);
-          }}
-          .badge {{
-            display:inline-flex;
-            align-items:center;
-            gap:6px;
-            font-size:11px;
-            text-transform:uppercase;
-            letter-spacing:0.12em;
-            padding:4px 10px;
-            border-radius:999px;
-            background:rgba(15,118,110,0.12);
-            color:#5eead4;
-            margin-bottom:12px;
-          }}
-          .badge-dot {{
-            width:7px;
-            height:7px;
-            border-radius:999px;
-            background:#22c55e;
-          }}
-          .fake {{
-            font-size:28px;
-            font-weight:800;
-            margin-bottom:6px;
-            color:#22c55e;
-            word-break:break-all;
-          }}
-          .subtitle {{
-            font-size:13px;
-            color:#9ca3af;
-            margin-bottom:18px;
-          }}
-          .loader {{
-            width:46px;
-            height:46px;
-            border-radius:999px;
-            border:5px solid rgba(148,163,184,0.35);
-            border-top-color:#e5e7eb;
-            margin:0 auto 16px auto;
-            animation:spin 1s linear infinite;
-          }}
-          @keyframes spin {{ to {{ transform:rotate(360deg); }} }}
-          .original-box {{
-            background:rgba(15,23,42,0.9);
-            border-radius:10px;
-            padding:10px 12px;
-            text-align:left;
-            border:1px dashed rgba(148,163,184,0.6);
-            font-size:12px;
-            color:#e5e7eb;
-            word-break:break-all;
-          }}
-          .label-small {{
-            font-size:11px;
-            text-transform:uppercase;
-            letter-spacing:0.16em;
-            color:#64748b;
-            margin-bottom:4px;
-          }}
-          .note {{
-            margin-top:12px;
-            font-size:11px;
-            color:#6b7280;
-          }}
-          .note span {{
-            color:#f97316;
-            font-weight:600;
-          }}
-        </style>
-        <meta http-equiv="refresh" content="1.6; url={{ original }}">
-      </head>
-      <body>
-        <div class="card">
-          <div class="badge">
-            <div class="badge-dot"></div>
-            URL awareness demo
-          </div>
-          <div class="fake">{{ label }}</div>
-          <div class="subtitle">This is what the link looked like… but it actually opens the URL below.</div>
-          <div class="loader"></div>
-          <div class="label-small">Actual destination</div>
-          <div class="original-box">{{ original }}</div>
-          <div class="note">
-            Always double-check the real domain before entering passwords. 
-            <span>This page will now redirect safely.</span>
-          </div>
-        </div>
-      </body>
-    </html>
-    """
-    return render_template_string(html, original=original, label=label)
+        info = url_mapping.get(token)
+        if not info:
+            return "Not found (invalid/expired token).", 404
 
+        original = info.get("original", "")
+        label = info.get("label", "") or ""
+        # Try logging but don't crash if it fails
+        try:
+            safe_log_click(token, request.remote_addr)
+        except Exception as e:
+            print("safe_log_click error:", e)
+
+        # Nice UI with auto-redirect
+        html = '''
+        <!doctype html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1">
+            <title>URL Awareness — Opening</title>
+            <meta http-equiv="refresh" content="1.5; url={{ original }}">
+            <style>
+              body{font-family:Inter,Arial,Helvetica,sans-serif;background:#071028;color:#e6eef8;margin:0;display:flex;align-items:center;justify-content:center;height:100vh}
+              .card{background:linear-gradient(180deg,#082033 0%, #031428 100%);padding:28px;border-radius:14px;box-shadow:0 18px 60px rgba(2,6,23,.6);width:92%;max-width:540px;text-align:center;border:1px solid rgba(255,255,255,0.03)}
+              .tag{display:inline-block;background:rgba(34,197,94,0.12);color:#bbf7d0;padding:6px 12px;border-radius:999px;font-weight:700;margin-bottom:12px;font-size:12px}
+              .fake{font-size:28px;font-weight:800;color:#86efac;margin-bottom:8px;word-break:break-word}
+              .sub{color:#9fb4c9;margin-bottom:18px}
+              .loader{width:48px;height:48px;border-radius:999px;border:6px solid rgba(255,255,255,0.08);border-top-color:#fff;margin:10px auto;animation:spin 1s linear infinite}
+              @keyframes spin{to{transform:rotate(360deg)}}
+              .orig-box{background:rgba(255,255,255,0.03);padding:12px;border-radius:10px;border:1px dashed rgba(255,255,255,0.04);margin-top:12px;color:#dff4ff;word-break:break-word}
+              .note{font-size:12px;color:#9fb4c9;margin-top:10px}
+              a.link{color:#7dd3fc;text-decoration:none}
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <div class="tag">URL Awareness Demo</div>
+              <div class="fake">{{ label }}</div>
+              <div class="sub">This is how the link LOOKED. The real destination is shown below.</div>
+              <div class="loader"></div>
+              <div class="orig-box">{{ original }}</div>
+              <div class="note">If not redirected <a class="link" href="{{ original }}" target="_blank">click here</a>.</div>
+            </div>
+          </body>
+        </html>
+        '''
+        return render_template_string(html, original=original, label=label)
+    except Exception:
+        tb = traceback.format_exc()
+        print("Exception in /r/<token>:\n", tb)
+        # return traceback to browser for debugging (safe for local/testing)
+        return "<pre>Internal error:\n\n" + tb + "</pre>", 500
+
+# -------------------------
+# Console flow (menu)
+# -------------------------
 def mask_flow(public_url):
     while True:
-        os.system('clear')
-        banner()
-        print(C.Y + "Step 1 — Enter ORIGINAL URL (where user will really go):" + C.END)
-        original = input(C.C_ + "> " + C.END).strip()
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print("\n=== CREATE AWARENESS LINK ===\n")
+        original = input("1) Enter ORIGINAL full URL (where users should really land):\n> ").strip()
         if not original:
-            input(C.R + "Empty URL. Press Enter to retry…" + C.END)
+            input("Empty original. Press Enter to retry...")
             continue
 
-        print()
-        print(C.Y + "Step 2 — Enter FAKE-style text (what the link looked like):" + C.END)
-        fake_input = input(C.C_ + "> " + C.END).strip()
+        fake_input = input("\n2) Enter FAKE-looking text (how the link APPEARS, e.g. youtube.com):\n> ").strip()
         if not fake_input:
             fake_input = "example.com"
 
-        print()
-        print(C.Y + "Step 3 — Generating suggestions based on your fake input…" + C.END)
-        suggestions = suggest_fake_names(fake_input, max_s=5)
-        print()
-        print(C.G + "Suggestions (for display only, NOT real domains):" + C.END)
+        print("\nGenerating suggestions based on your input...")
+        suggestions = suggest_fake_names(fake_input, max_s=6)
+        print("\nSuggestions (display-only):")
         for i, (d, r) in enumerate(suggestions, start=1):
-            status = (C.R + "TAKEN" + C.END) if r else (C.G + "FREE" + C.END)
-            print(f"  {C.C_}[{i}]{C.END} {d}   {status}")
-        print(f"  {C.C_}[0]{C.END} Use exactly what you typed: {fake_input}")
+            status = "TAKEN" if r else "FREE"
+            print(f" [{i}] {d}   ({status})")
+        print(" [0] Use exactly what I typed:", fake_input)
 
-        choice = input(C.Y + f"\nChoose which label to SHOW on the awareness page (0-{len(suggestions)}): " + C.END).strip()
-        if choice.isdigit():
-            idx = int(choice)
-            if idx == 0:
-                final_label = fake_input
-            elif 1 <= idx <= len(suggestions):
-                final_label = suggestions[idx-1][0]
+        sel = input("\nChoose label index to SHOW on landing page (0-{}): ".format(len(suggestions))).strip()
+        if sel.isdigit():
+            sel = int(sel)
+            if sel == 0:
+                chosen_label = fake_input
+            elif 1 <= sel <= len(suggestions):
+                chosen_label = suggestions[sel-1][0]
             else:
-                final_label = fake_input
+                chosen_label = fake_input
         else:
-            final_label = fake_input
+            chosen_label = fake_input
 
-        print()
-        print(C.G + "Summary:" + C.END)
-        print("  " + C.Y + "Original (real destination):" + C.END, original)
-        print("  " + C.Y + "Fake-looking label to show:" + C.END, final_label)
-        conf = input(C.Y + "\nCreate awareness link with this config? (y/n): " + C.END).strip().lower()
-        if conf != "y":
-            input(C.R + "Cancelled. Press Enter to restart…" + C.END)
+        print("\nPreview:")
+        print(" Original (destination):", original)
+        print(" Display label (on landing page):", chosen_label)
+        conf = input("\nConfirm create awareness link? (y/N): ").strip().lower()
+        if conf != 'y':
+            input("Cancelled. Press Enter to restart...")
             continue
 
         token = gen_token(10)
-        url_mapping[token] = {
-            "original": original,
-            "label": final_label,
-            "created": time.time()
-        }
-        final_url = public_url.rstrip('/') + "/r/" + token
+        url_mapping[token] = {"original": original, "label": chosen_label, "created": time.time()}
 
-        box = "+" + "-"*(len(final_url)+6) + "+"
-        print()
-        print(C.G + C.BOLD + "Your FINAL awareness URL (share this):" + C.END)
-        print(C.C_ + box)
-        print("|  " + final_url + "  |")
-        print(box + C.END)
-        print()
-        print(C.Y + "When someone opens this, they'll first see the fake label big," + C.END)
-        print(C.Y + "and the REAL destination below, then it auto-redirects." + C.END)
-        input("\nPress Enter to go back to menu…")
+        # build final link using provided public_url
+        pub = public_url.rstrip('/') if public_url else None
+        if not pub:
+            print("\nNo public ngrok URL provided — start ngrok and paste forwarding URL now.")
+            manual = input("Paste ngrok URL (or Enter to cancel): ").strip()
+            if not manual:
+                input("Cancelled. Press Enter...")
+                return
+            pub = manual.rstrip('/')
+
+        final = pub + "/r/" + token
+        border = "+" + "-"*(len(final)+6) + "+"
+        print("\nFINAL AWARENESS LINK (share this):")
+        print(border)
+        print("|  " + final + "  |")
+        print(border)
+        print("\nOpen it in a browser to test the landing page -> it will auto-redirect to the original.")
+        input("\nPress Enter to continue...")
         return
 
-def main_menu(public_url):
+def show_mappings():
+    os.system('cls' if os.name == 'nt' else 'clear')
+    print("\n=== CURRENT MAPPINGS ===\n")
+    if not url_mapping:
+        print("No mappings created yet.")
+    else:
+        for t, info in url_mapping.items():
+            print(" Token:", t)
+            print("  Original:", info.get("original"))
+            print("  Label:   ", info.get("label"))
+            print("  Created: ", time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(info.get("created", 0))))
+            print("-" * 36)
+    input("\nPress Enter to return to menu...")
+
+# -------------------------
+# Start app + ngrok + menu
+# -------------------------
+def start_app():
+    os.system('cls' if os.name == 'nt' else 'clear')
+    print("SAFE Awareness Masking Tool — port 8000\n")
+    public = None
+    try:
+        # try auto-start ngrok
+        tunnel = ngrok.connect(8000)
+        public = tunnel.public_url
+        print("Auto-ngrok started, public URL:", public)
+    except Exception as e:
+        print("Auto-ngrok failed (you can run ngrok manually):", e)
+        manual = input("If ngrok is running, paste its forwarding URL here (or press Enter to skip): ").strip()
+        public = manual if manual else None
+
+    # Ensure logging file exists
+    ensure_log_header()
+
+    # Start Flask app in a thread
+    threading.Thread(target=lambda: app.run(host="0.0.0.0", port=8000, debug=False, use_reloader=False)).start()
+
     while True:
-        os.system('clear')
-        banner()
-        print(C.G + "Ngrok public URL: " + C.C_ + public_url + C.END)
-        print()
-        print("1) Create new awareness / masked URL")
-        print("2) Show current mappings")
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print("SAFE Awareness Masking Tool")
+        print("NGROK public:", public or "(not detected)")
+        print("\n1) Create awareness link")
+        print("2) Show mappings")
         print("3) Exit")
-        choice = input(C.Y + "> " + C.END).strip()
-        if choice == "1":
-            mask_flow(public_url)
-        elif choice == "2":
-            os.system('clear')
-            banner()
-            if not url_mapping:
-                print(C.R + "No mappings yet." + C.END)
-            else:
-                print(C.G + "Current mappings:\n" + C.END)
-                for t, info in url_mapping.items():
-                    print(f"Token: {t}")
-                    print(f"  Original: {info['original']}")
-                    print(f"  Label:    {info.get('label')}")
-                    print()
-            input("Press Enter to return…")
-        elif choice == "3":
+        ch = input("> ").strip()
+        if ch == "1":
+            mask_flow(public)
+        elif ch == "2":
+            show_mappings()
+        elif ch == "3":
+            print("Exiting.")
             os._exit(0)
         else:
-            input(C.R + "Invalid option. Press Enter…" + C.END)
-
-def start():
-    os.system('clear')
-    banner()
-    print(C.G + "Starting ngrok on port 8000…" + C.END)
-    try:
-        tunnel = ngrok.connect(8000)
-        public_url = tunnel.public_url
-    except Exception as e:
-        print(C.R + f"Auto ngrok failed: {e}" + C.END)
-        public_url = input(C.Y + "Start `ngrok http 8000` manually, then paste the forwarding URL here: " + C.END).strip()
-    print()
-    print(C.G + "Using public URL: " + C.C_ + public_url + C.END)
-    threading.Thread(target=lambda: app.run(host="0.0.0.0", port=8000, debug=False, use_reloader=False)).start()
-    main_menu(public_url)
+            input("Invalid choice. Press Enter to continue...")
 
 if __name__ == "__main__":
-    start()
+    start_app()
